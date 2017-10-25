@@ -1,0 +1,8 @@
+FROM monroe/base
+
+MAINTAINER hoang.tran@uclouvain.be
+
+COPY ./config /monroe/config
+COPY files/* /opt/monroe/
+
+ENTRYPOINT ["dumb-init", "--", "/bin/bash", "/opt/monroe/main-script-json.sh"]
