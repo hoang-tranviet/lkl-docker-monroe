@@ -12,7 +12,7 @@
     This is the workaround version where I am using pollers to overcome
     a possible hanged socket.
 """
-DEBUG = True
+DEBUG = False
 
 import zmq
 import json
