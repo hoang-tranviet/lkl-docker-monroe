@@ -21,12 +21,15 @@ ip route
 
 cd /opt/monroe
 
-# LKL_HIJACK_CONFIG_FILE=$LKL_FILE    ./bin/lkl-hijack.sh   curl --resolve multipath-tcp.org:80:130.104.230.45 http://multipath-tcp.org
+echo "Installing LKL package:"
+apt-get install ./lkl_4.13.0-20171027_amd64.deb
 
-# LKL_HIJACK_CONFIG_FILE=$LKL_FILE    ./bin/lkl-hijack.sh   ./mptcp_iperf3 -c 130.104.230.97 -p 5206 -t 3
+LKL_HIJACK_CONFIG_FILE=$LKL_FILE    lkl-hijack   curl --resolve multipath-tcp.org:80:130.104.230.45 http://multipath-tcp.org
 
-./metadata
+LKL_HIJACK_CONFIG_FILE=$LKL_FILE    lkl-hijack   ./mptcp_iperf3 -c 130.104.230.97 -p 5206 -t 3
 
-./metadata_subscriber.py
+LKL_HIJACK_CONFIG_FILE=$LKL_FILE    lkl-hijack   ./metadata
+
+#./metadata_subscriber.py
 
 # ./nettest.py
