@@ -21,17 +21,10 @@ IFaces = {}
 LKL_IF = {}
 LKL_CONFIG = {
     "gateway":"172.18.1.1",
-    "debug":"1",
+    "debug":"0",
     "singlecpu":"1",
     "sysctl":"net.ipv4.tcp_wmem=4096 87380 214748364",
-    "interfaces":[
-         {
-                 "type":"raw",
-                 "param":"op0",
-                 "ip":"172.18.1.3",
-                 "masklen":"24",
-         },
-    ]
+    "interfaces":[]
   }
 
 # Default values (overwritable from the CONFIGFILE)

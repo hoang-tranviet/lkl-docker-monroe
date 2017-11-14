@@ -1,6 +1,6 @@
 {
   "gateway":"172.18.1.1",
-  "debug":"1",
+  "debug":"0",
   "singlecpu":"1",
   "sysctl":"net.ipv4.tcp_wmem=4096 87380 214748364",
   "interfaces":[
