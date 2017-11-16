@@ -17,13 +17,12 @@ DEBUG = False
 CONFIGFILE = '/monroe/config'
 
 IFaces = {}
-
 LKL_IF = {}
+
 LKL_CONFIG = {
-    "gateway":"172.18.1.1",
     "debug":"0",
     "singlecpu":"1",
-    "sysctl":"net.ipv4.tcp_wmem=4096 87380 214748364",
+    "sysctl":"net.ipv4.tcp_wmem=4096 87380 6291456",
     "interfaces":[]
   }
 
@@ -42,6 +41,7 @@ EXPCONFIG = {
         "interfaces_without_metadata": ["eth0",
                                         "wlan0"],       # Manual metadata on these IF
         }
+
 # Helper functions
 def check_if(ifname):
     """Check if interface is up and have got an IP address."""
@@ -70,8 +70,21 @@ def netmask_to_cidr(netmask):
     #     masklen += bin(int(piece)).count("1")
     return masklen
 
+def get_default_gateway():
+    gws=netifaces.gateways()
+    pp.pprint(gws)
+    if netifaces.AF_INET in gws['default']:
+        LKL_CONFIG['gateway']  = gws['default'][netifaces.AF_INET][0]
+    else:
+        print("No IPv4 default gateway!")
+
+    if netifaces.AF_INET6 in gws['default']:
+        LKL_CONFIG['gateway6'] = gws['default'][netifaces.AF_INET6][0]
+
+
 def time_now():
     return time.time()
+
 
 def create_LKL_config():
     # Load config and check so we have all variables we need
@@ -81,6 +94,8 @@ def create_LKL_config():
     except Exception as e:
         print("Missing expconfig variable {}".format(e))
         raise e
+
+    get_default_gateway()
 
     for ifname in netifaces.interfaces():
 
@@ -103,17 +118,24 @@ def create_LKL_config():
 
         ip      = get_ip(ifname)
         netmask = get_netmask(ifname)
+        masklen = netmask_to_cidr(get_netmask(ifname))
 
-        print("%s: %s %s" %(ifname, ip, netmask))
-        IFaces[ifname] = ( ip, netmask)
+        gw_ip ="undefined"
+        # gw_ip6="undefined"
+        for g in netifaces.gateways()[netifaces.AF_INET]:
+            if g[1] == ifname:
+                gw_ip = g[0]
+                break
+        # or use: ip route get 8.8.8.8 from srcIP
 
-    for ifname in IFaces:
         LKL_IF = {  "type"   : "raw",
                     "param"  : ifname,
-                    "ip"     : get_ip(ifname),
-                    "masklen": netmask_to_cidr(get_netmask(ifname)),
+                    "ip"     : ip,
+                    "masklen": masklen,
+                    "gateway": gw_ip,
                 }
         LKL_CONFIG["interfaces"].append(LKL_IF)
+
 
     pp.pprint(LKL_CONFIG)
 
@@ -147,6 +169,9 @@ else:
 
 
 create_LKL_config()
+
+
+
 
 
 def metadata(meta_ifinfo, ifname, expconfig):
