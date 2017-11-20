@@ -1,13 +1,18 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # from github.com/MONROE-PROJECT/Utilities/blob/master/monroe-experiments/usr/bin/metadata
 
 import zmq
+import os
 import sys
 import time
 import sys
 import json
 import netifaces
+from subprocess import Popen, PIPE, STDOUT, call
+from multiprocessing import Process, Manager
+from collections import OrderedDict
+
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -31,7 +36,7 @@ EXPCONFIG = {
         "zmqport": "tcp://172.17.0.1:5556",
         "nodeid": "fake.nodeid",                        # Need to overriden
         "metadata_topic": "MONROE.META",
-        "verbosity": 1,                                 # 0 = "Mute", 1=error, 2=Information, 3=verbose
+        "verbosity": 3,                                 # 0 = "Mute", 1=error, 2=Information, 3=verbose
         "resultdir": "/monroe/results/",
         "socketwait": 60,                                # Number of seconds to wait for data on the socket
         "disabled_interfaces": ["lo",
@@ -78,8 +83,8 @@ def get_default_gateway():
     else:
         print("No IPv4 default gateway!")
 
-    if netifaces.AF_INET6 in gws['default']:
-        LKL_CONFIG['gateway6'] = gws['default'][netifaces.AF_INET6][0]
+    # if netifaces.AF_INET6 in gws['default']:
+    #     LKL_CONFIG['gateway6'] = gws['default'][netifaces.AF_INET6][0]
 
 
 def time_now():
@@ -132,7 +137,7 @@ def create_LKL_config():
                     "param"  : ifname,
                     "ip"     : ip,
                     "masklen": masklen,
-                    "gateway": gw_ip,
+                    "ifgateway": gw_ip,
                 }
         LKL_CONFIG["interfaces"].append(LKL_IF)
 
@@ -153,6 +158,61 @@ def create_socket(topic, port):
     return socket
 
 
+def create_exp_process(meta_info, expconfig):
+    print("Create experiment process")
+    process = Process(target=run_exp, args=(meta_info, expconfig, ))
+    process.daemon = False
+    return process
+
+def run_exp(meta_info, expconfig):
+    """Seperate process that runs the experiment and collect the ouput.
+    """
+    cfg = expconfig.copy()
+    output = None
+
+    my_env = os.environ.copy()
+    my_env["LKL_HIJACK_CONFIG_FILE"] = "./lkl-config.json"
+
+    try:
+        ## plain iperf3
+        # cmd = ["./iperf3_profile", "-Vd", "--no-delay", "-t" "3",
+        #          "-c", "130.104.230.97", "-p", "5201"]
+
+        # cmd = ["lkl-hijack", "ip", "addr"]
+        # cmd = ["lkl-hijack", "ip", "route"]
+        # cmd = ["lkl-hijack", "ip", "route show table 6"]
+        # cmd = ["lkl-hijack", "ping", "-c1","8.8.8.8"]
+        cmd = ["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
+                 "-c", "130.104.230.97", "-p", "5201"]
+
+        if cfg['verbosity'] > 2:
+            print("running '{}' with input: {}".format(cmd, json.dumps(cfg)))
+
+        # p = Popen(cmd, stdin=PIPE, stdout=PIPE, env=my_env)
+        # output = p.communicate(input=json.dumps(cfg).encode())[0]
+
+        p = Popen(cmd, stdout=PIPE, stderr=STDOUT, env=my_env)
+
+        for line in iter(p.stdout.readline, b''):
+            print(line.rstrip())
+
+        # msg = json.loads(output.decode(), object_pairs_hook=OrderedDict)
+        # msg["ErrorCode"] = p.returncode
+
+        if cfg['verbosity'] > 2:
+            print("Result: {}".format(output))
+        # if not DEBUG:
+        #     save_output(data=cfg, msg=output, tstamp=cfg['timestamp'], outdir=cfg['resultdir'])
+    except Exception as e:
+        if cfg['verbosity'] > 0:
+            print ("Execution or parsing failed for "
+                   "command : {}, "
+                   "config : {}, "
+                   "output : {}, "
+                   "error: {}").format(cmd, cfg, output, e)
+
+
+# if __name__ == '__main__':
 
 if not DEBUG:
     try:
@@ -168,9 +228,19 @@ else:
     EXPCONFIG['socketwait'] = 10
 
 
+
 create_LKL_config()
 
+cfg = EXPCONFIG
+meta_info = None
 
+# Ok we have some information lets start the experiment script
+if cfg['verbosity'] > 1:
+    print("Starting experiment")
+cfg['timestamp'] = start_time_exp = time.time()
+
+exp_process = create_exp_process(meta_info, cfg)
+exp_process.start()
 
 
 
