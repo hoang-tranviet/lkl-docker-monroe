@@ -18,11 +18,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 # Only enable DEBUG mode on local testing node
 DEBUG = False
-
 CONFIGFILE = '/monroe/config'
-
-IFaces = {}
-LKL_IF = {}
 
 LKL_CONFIG = {
     "debug":"0",
@@ -189,6 +185,7 @@ def run_exp(meta_info, expconfig, cmd):
         # p = Popen(cmd, stdin=PIPE, stdout=PIPE, env=my_env)
         # output = p.communicate(input=json.dumps(cfg).encode())[0]
 
+        # catching stdout in realtime from subprocess
         p = Popen(cmd, stdout=PIPE, stderr=STDOUT, env=my_env)
         for line in iter(p.stdout.readline, b''):
             print(">>> " + line.rstrip())
@@ -243,7 +240,7 @@ cmds = []
 cmds.append(["lkl-hijack", "ip", "addr"])
 cmds.append(["lkl-hijack", "ip", "route get 8.8.8.8"])
 cmds.append(["lkl-hijack", "ip", "route show table 4"])
-cmds.append(["lkl-hijack", "ping", "-t0.1","-c2","8.8.8.8"])
+cmds.append(["lkl-hijack", "ping", "-i 0.2","-c2","8.8.8.8"])
 cmds.append(["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
          "-c", "130.104.230.97", "-p", "5201"])
 

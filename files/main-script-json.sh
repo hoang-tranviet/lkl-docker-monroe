@@ -2,6 +2,7 @@
 #
 set -x
 
+# Check if we are on a managed monroe node
 cat /nodeid 2> /dev/null
 
 if [ $? -eq 0 ]
@@ -25,10 +26,15 @@ ip route show table 10001
 
 cd /opt/monroe
 
+# apt-get update
+# apt-get install -y --no-install-recommends apt-utils
+
 # "Installing LKL package:"
 apt-get install -y ./*.deb
 
-./metadata
+rm *.deb
+# this script also creates lkl-config.json
+./siri-test.py
 
 LKL_HIJACK_CONFIG_FILE=$LKL_FILE   lkl-hijack \
  curl --resolve multipath-tcp.org:80:130.104.230.45 http://multipath-tcp.org

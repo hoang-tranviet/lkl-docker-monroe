@@ -1,6 +1,6 @@
 DOCKER_DIR="$(pwd)"
 
-rm -r files/lkl
+rm -r files/lkl   2> /dev/null
 
 LKL_DIR="/home/hoang/multipathtcp/lkl-mptcp/"
 echo "compile LKL"
