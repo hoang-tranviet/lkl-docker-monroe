@@ -2,23 +2,17 @@
 #
 set -x
 
-# iperf binary won't work if renamed, use alias instead
-Siri="iperf3_profile"
-
-cat /nodeid
+cat /nodeid 2> /dev/null
 
 if [ $? -eq 0 ]
 then
   echo "On Monroe node"
   LKL_FILE="lkl-config.json"
   cat /monroe/config
-  IF="op0"
 else
   echo "On local node"
-	LKL_FILE="lkl-local.json"
-  IF="eth0"
+  LKL_FILE="lkl-local.json"
 fi
-
 
 ip addr
 ip route
@@ -26,9 +20,8 @@ ip rule
 ip route show table 10000
 ip route show table 10001
 
-
-ss -antop| grep 5556
-cat /etc/metadata-exporter.conf
+# ss -antop| grep 5556
+# cat /etc/metadata-exporter.conf
 
 cd /opt/monroe
 
@@ -44,13 +37,14 @@ ifaces="$( cat lkl-config.json |grep param| cut -f4 -d '"')"
 ifcount="$(cat lkl-config.json |grep param| cut -f4 -d '"'| wc -l)"
 
 # if [[ $((ifcount)) == '2' ]]; then
-# 	IF1="$(echo ifaces| cut
-# 	LKL_HIJACK_CONFIG_FILE=$LKL_FILE   lkl-hijack \
-#  	./iperf3_profile  -Vd --no-delay -t 3 -c 139.162.73.214 -p 5209 -m $IF,$IF
+#   IF1="$(echo ifaces| cut
+#   LKL_HIJACK_CONFIG_FILE=$LKL_FILE   lkl-hijack \
+#   ./iperf3_profile  -Vd --no-delay -t 3 -c 139.162.73.214 -p 5201 -m $IF,$IF
 # else
-	LKL_HIJACK_CONFIG_FILE=$LKL_FILE   lkl-hijack \
-	./iperf3_profile  -Vd --no-delay -t 3 -c 139.162.73.214 -p 5209
+    # LKL_HIJACK_CONFIG_FILE=$LKL_FILE   lkl-hijack \
+    # ./iperf3_profile  -Vd --no-delay -t 3 -c 139.162.73.214 -p 5201
 # fi
+## Note: iperf binary won't work if renamed
 
 
 #./metadata_subscriber.py

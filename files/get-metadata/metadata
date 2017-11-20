@@ -41,13 +41,19 @@ EXPCONFIG = {
         "socketwait": 60,                                # Number of seconds to wait for data on the socket
         "disabled_interfaces": ["lo",
                         "metadata",
-                        "eth0"
+                        # "eth0"
                         ],
         "interfaces_without_metadata": ["eth0",
                                         "wlan0"],       # Manual metadata on these IF
         }
 
 # Helper functions
+import os.path
+def is_monroe_node():
+    return os.path.isfile('/nodeid')
+def is_vagrant_vm():
+    return os.path.exists('/sent_from_host')
+
 def check_if(ifname):
     """Check if interface is up and have got an IP address."""
     return (ifname in netifaces.interfaces() and
@@ -94,6 +100,9 @@ def time_now():
 def create_LKL_config():
     # Load config and check so we have all variables we need
     try:
+        if is_monroe_node() or is_vagrant_vm():
+            print("ignoring eth0")
+            EXPCONFIG['disabled_interfaces'].append("eth0")
         disabled_interfaces = EXPCONFIG['disabled_interfaces']
         if_without_metadata = EXPCONFIG['interfaces_without_metadata']
     except Exception as e:
@@ -158,13 +167,13 @@ def create_socket(topic, port):
     return socket
 
 
-def create_exp_process(meta_info, expconfig):
+def create_exp_process(meta_info, expconfig, cmd):
     print("Create experiment process")
-    process = Process(target=run_exp, args=(meta_info, expconfig, ))
+    process = Process(target=run_exp, args=(meta_info, expconfig, cmd, ))
     process.daemon = False
     return process
 
-def run_exp(meta_info, expconfig):
+def run_exp(meta_info, expconfig, cmd):
     """Seperate process that runs the experiment and collect the ouput.
     """
     cfg = expconfig.copy()
@@ -174,17 +183,6 @@ def run_exp(meta_info, expconfig):
     my_env["LKL_HIJACK_CONFIG_FILE"] = "./lkl-config.json"
 
     try:
-        ## plain iperf3
-        # cmd = ["./iperf3_profile", "-Vd", "--no-delay", "-t" "3",
-        #          "-c", "130.104.230.97", "-p", "5201"]
-
-        # cmd = ["lkl-hijack", "ip", "addr"]
-        # cmd = ["lkl-hijack", "ip", "route"]
-        # cmd = ["lkl-hijack", "ip", "route show table 6"]
-        # cmd = ["lkl-hijack", "ping", "-c1","8.8.8.8"]
-        cmd = ["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
-                 "-c", "130.104.230.97", "-p", "5201"]
-
         if cfg['verbosity'] > 2:
             print("running '{}' with input: {}".format(cmd, json.dumps(cfg)))
 
@@ -192,9 +190,8 @@ def run_exp(meta_info, expconfig):
         # output = p.communicate(input=json.dumps(cfg).encode())[0]
 
         p = Popen(cmd, stdout=PIPE, stderr=STDOUT, env=my_env)
-
         for line in iter(p.stdout.readline, b''):
-            print(line.rstrip())
+            print(">>> " + line.rstrip())
 
         # msg = json.loads(output.decode(), object_pairs_hook=OrderedDict)
         # msg["ErrorCode"] = p.returncode
@@ -239,9 +236,22 @@ if cfg['verbosity'] > 1:
     print("Starting experiment")
 cfg['timestamp'] = start_time_exp = time.time()
 
-exp_process = create_exp_process(meta_info, cfg)
-exp_process.start()
+cmds = []
+## plain iperf3
+# cmd = ["./iperf3", "-Vd", "--no-delay", "-t" "3",
+#          "-c", "130.104.230.97", "-p", "5201"]
+cmds.append(["lkl-hijack", "ip", "addr"])
+cmds.append(["lkl-hijack", "ip", "route get 8.8.8.8"])
+cmds.append(["lkl-hijack", "ip", "route show table 4"])
+cmds.append(["lkl-hijack", "ping", "-t0.1","-c2","8.8.8.8"])
+cmds.append(["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
+         "-c", "130.104.230.97", "-p", "5201"])
 
+# exp_process = create_exp_process(meta_info, cfg, cmd)
+# exp_process.start()
+
+for cmd in cmds:
+    run_exp(meta_info, cfg, cmd)
 
 
 def metadata(meta_ifinfo, ifname, expconfig):
