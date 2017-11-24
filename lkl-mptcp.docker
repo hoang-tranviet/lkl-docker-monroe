@@ -1,4 +1,5 @@
-FROM monroe/base
+#FROM monroe/base
+FROM tranviethoang/lkl-base
 
 MAINTAINER hoang.tran@uclouvain.be
 
