@@ -137,6 +137,10 @@ def create_LKL_config():
             if g[1] == ifname:
                 gw_ip = g[0]
                 break
+
+        if gw_ip =="undefined":
+            print("Interface has no gateway {}".format(ifname))
+            continue
         # or use: ip route get 8.8.8.8 from srcIP
 
         LKL_IF = {  "type"   : "raw",
@@ -147,9 +151,11 @@ def create_LKL_config():
                 }
         LKL_CONFIG["interfaces"].append(LKL_IF)
 
-        gw = get_default_gateway()
-        if not gw:
-            LKL_CONFIG['gateway'] = LKL_CONFIG["interfaces"][0]["ifgateway"]
+
+    gw = get_default_gateway()
+    if not gw:
+        print("use gateway of {} as default gateway".format(ifname))
+        LKL_CONFIG['gateway'] = LKL_CONFIG["interfaces"][0]["ifgateway"]
 
     pp.pprint(LKL_CONFIG)
 
@@ -241,10 +247,10 @@ cmds = []
 ## plain iperf3
 # cmd = ["./iperf3", "-Vd", "--no-delay", "-t" "3",
 #          "-c", "130.104.230.97", "-p", "5201"]
-cmds.append(["lkl-hijack", "ip", "addr"])
+# cmds.append(["lkl-hijack", "ip", "addr"])
 cmds.append(["lkl-hijack", "ip", "route get 8.8.8.8"])
 # cmds.append(["lkl-hijack", "ip", "route show table 4"])
-cmds.append(["lkl-hijack", "ping", "-i 0.2","-c2","8.8.8.8"])
+# cmds.append(["lkl-hijack", "ping", "-i 0.2","-c2","8.8.8.8"])
 # cmds.append(["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
 #          "-c", "130.104.230.97", "-p", "5201"])
 
