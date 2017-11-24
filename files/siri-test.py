@@ -82,8 +82,10 @@ def get_default_gateway():
     pp.pprint(gws)
     if netifaces.AF_INET in gws['default']:
         LKL_CONFIG['gateway']  = gws['default'][netifaces.AF_INET][0]
+        return True
     else:
-        print("No IPv4 default gateway!")
+        # print("No IPv4 default gateway!")
+        return False
 
     # if netifaces.AF_INET6 in gws['default']:
     #     LKL_CONFIG['gateway6'] = gws['default'][netifaces.AF_INET6][0]
@@ -105,7 +107,6 @@ def create_LKL_config():
         print("Missing expconfig variable {}".format(e))
         raise e
 
-    get_default_gateway()
 
     for ifname in netifaces.interfaces():
 
@@ -146,6 +147,9 @@ def create_LKL_config():
                 }
         LKL_CONFIG["interfaces"].append(LKL_IF)
 
+        gw = get_default_gateway()
+        if not gw:
+            LKL_CONFIG['gateway'] = LKL_CONFIG["interfaces"][0]["ifgateway"]
 
     pp.pprint(LKL_CONFIG)
 
@@ -179,8 +183,8 @@ def run_exp(meta_info, expconfig, cmd):
     my_env["LKL_HIJACK_CONFIG_FILE"] = "./lkl-config.json"
 
     try:
-        if cfg['verbosity'] > 2:
-            print("running '{}' with input: {}".format(cmd, json.dumps(cfg)))
+        # if cfg['verbosity'] > 2:
+        print("running '{}'".format(cmd))
 
         # p = Popen(cmd, stdin=PIPE, stdout=PIPE, env=my_env)
         # output = p.communicate(input=json.dumps(cfg).encode())[0]
@@ -200,10 +204,10 @@ def run_exp(meta_info, expconfig, cmd):
     except Exception as e:
         if cfg['verbosity'] > 0:
             print ("Execution or parsing failed for "
-                   "command : {}, "
-                   "config : {}, "
+                   # "command : {}, "
+                   # "config : {}, "
                    "output : {}, "
-                   "error: {}").format(cmd, cfg, output, e)
+                   "error: {}").format(output, e)
 
 
 # if __name__ == '__main__':
@@ -239,10 +243,10 @@ cmds = []
 #          "-c", "130.104.230.97", "-p", "5201"]
 cmds.append(["lkl-hijack", "ip", "addr"])
 cmds.append(["lkl-hijack", "ip", "route get 8.8.8.8"])
-cmds.append(["lkl-hijack", "ip", "route show table 4"])
+# cmds.append(["lkl-hijack", "ip", "route show table 4"])
 cmds.append(["lkl-hijack", "ping", "-i 0.2","-c2","8.8.8.8"])
-cmds.append(["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
-         "-c", "130.104.230.97", "-p", "5201"])
+# cmds.append(["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
+#          "-c", "130.104.230.97", "-p", "5201"])
 
 # exp_process = create_exp_process(meta_info, cfg, cmd)
 # exp_process.start()
