@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "remember to connect LAN cable to eth2 of dev node (right LAN port next to USBs)"
+sudo ip addr add 172.16.254.10/24 dev eno1
+ssh monroeSA@172.16.254.1

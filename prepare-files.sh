@@ -4,7 +4,8 @@ rm -r files/lkl files/*.deb                     2> /dev/null
 
 LKL_DIR="/run/media/hoang/home/hoang/multipathtcp/lkl-mptcp"
 echo "compile LKL"
-cd $LKL_DIR/tools/lkl  && make -j4
+cd $LKL_DIR/tools/lkl
+make -j4 KALLSYMS_EXTRA_PASS=1
 
 echo "create LKL deb package"
 cd $LKL_DIR   && rm *.deb *.rpm  deb/* -r       2> /dev/null
@@ -18,3 +19,5 @@ cp $IPERF_DIR/src/.libs/iperf3_profile  files/
 # iperf3_profile in .libs is the only binary that I found can work alone
 # renamed iperf binary won't work, weird!
 # cp $IPERF_DIR/src/.libs/iperf3_profile  files/mptcp_siri
+
+sudo ./build.sh

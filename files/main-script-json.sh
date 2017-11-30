@@ -5,7 +5,8 @@ set -x
 time=`date +%Y-%m-%d-%H%M%S`
 test_id=$time
 
-log_file=/monroe/results/output-${time}.log
+nodeid="$(cat /nodeid)"
+log_file=/monroe/results/output-${time}-${nodeid}.log
 
 # Check if we are on a managed monroe node
 nodeid="$(cat /nodeid)"   >> $log_file 2>&1
@@ -65,44 +66,42 @@ port=$(( 5201 + RANDOM % 8))
 
 
 start_tcpdump() {
-        # trace="/monroe/results/dump-$nodeid-$test_id.pcap"
-        trace="/monroe/results/tshark-$nodeid-$test_id.pcap"
-
+        server=$1
+        trace="/monroe/results/dump-$test_id-$server-$nodeid-$2.pcap.log"
+        # trace="/monroe/results/tshark-$nodeid-$test_id.pcap"
         echo "capturing packet trace to file: $trace"
-        # tcpdump  -i any  -s 150 tcp and portrange 5201-5210  -w $trace  &
-        # tcpdump -i $1 -s 150  -w $trace  &
-        tshark -w   $trace
+        # tcpdump  -i $2  -s 150 tcp and portrange 5201-5210  -w $trace  &
+        tcpdump -i $2 -s 150  -w $trace  &
+        # tshark -w   $trace &
         sleep 0.3
 }
 
 kill_tcpdump() {
         echo "killing tcpdump"
         sleep 2
-        # pkill tcpdump
-        pkill tshark
+        pkill tcpdump
+        pkill tcpdump
+        # pkill tshark
 }
 
+for server in $inlab_server $linode_server; do
+	iperf="./iperf3_profile -Vd --no-delay -t 14 -i 0 -c $server -p $port --test-id $test_id "
+	cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
 
-baseopt=" -Vd --no-delay -t 3  -c $inlab_server -p $port --test-id $test_id "
-cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL ./iperf3_profile  $baseopt"
+	IF1="$(echo $ifaces| cut -d' ' -f1)"
 
-if [[ $ifcount -gt 1 ]]; then
-  IF1="$(echo $ifaces| cut -d' ' -f1)"
-  IF2="$(echo $ifaces| cut -d' ' -f2)"
-  # echo "$IF1 $IF2"
-  cmd=$cmd" -m $IF1,$IF2"
-fi
+	start_tcpdump $server $IF1
 
-IF1="$(echo $ifaces| cut -d' ' -f1)"
+	if [[ $ifcount -gt 1 ]]; then
+	  IF2="$(echo $ifaces| cut -d' ' -f2)"
+	  # echo "$IF1 $IF2"
+	  cmd=$cmd" -m $IF1,$IF2"
+	  start_tcpdump $server $IF2
+	fi
 
-start_tcpdump $IF1
+	(eval $cmd) >> $log_file 2>&1
 
-(eval $cmd) >> $log_file 2>&1
+	## Note: iperf binary won't work if renamed
 
-## Note: iperf binary won't work if renamed
-
-kill_tcpdump
-
-#./metadata_subscriber.py
-
-# ./nettest.py
+	kill_tcpdump
+done
