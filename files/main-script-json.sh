@@ -71,7 +71,7 @@ start_tcpdump() {
         # trace="/monroe/results/tshark-$nodeid-$test_id.pcap"
         echo "capturing packet trace to file: $trace"
         # tcpdump  -i $2  -s 150 tcp and portrange 5201-5210  -w $trace  &
-        tcpdump -i $2 -s 150  -w $trace  &
+        tcpdump -i $2 -s 150 not icmp -w $trace  &
         # tshark -w   $trace &
         sleep 0.3
 }
@@ -84,11 +84,23 @@ kill_tcpdump() {
         # pkill tshark
 }
 
+iptables_bypass_kernel_stack() {
+	iptables -A OUTPUT -p tcp --tcp-flags RST RST -d $server -j DROP
+	iptables -A INPUT -p tcp --source-port $port -j DROP	
+}
+iptables_cleanup() {
+	iptables -D OUTPUT -p tcp --tcp-flags RST RST -d $server -j DROP
+	iptables -D INPUT -p tcp --source-port $port -j DROP
+}
+
 for server in $inlab_server $linode_server; do
+	## Note: iperf binary won't work if renamed
 	iperf="./iperf3_profile -Vd --no-delay -t 14 -i 0 -c $server -p $port --test-id $test_id "
 	cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
 
 	IF1="$(echo $ifaces| cut -d' ' -f1)"
+
+	iptables_bypass_kernel_stack
 
 	start_tcpdump $server $IF1
 
@@ -101,7 +113,8 @@ for server in $inlab_server $linode_server; do
 
 	(eval $cmd) >> $log_file 2>&1
 
-	## Note: iperf binary won't work if renamed
+	iptables -L -v
+	iptables_cleanup
 
 	kill_tcpdump
 done
