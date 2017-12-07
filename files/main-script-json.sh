@@ -9,7 +9,7 @@ nodeid="$(cat /nodeid)"
 log_file=/monroe/results/output-${time}-${nodeid}.log
 
 # Check if we are on a managed monroe node
-"$(cat /nodeid)"   >> $log_file 2>&1
+cat /nodeid   >> $log_file 2>&1
 
 if [ $? -eq 0 ]; then
   # echo "On Monroe node"
@@ -48,7 +48,7 @@ apt-get install -y ./*.deb
 LKL_FILE="lkl-config.json"
 
 LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL \
- curl --resolve multipath-tcp.org:80:130.104.230.45 http://multipath-tcp.org
+ curl --resolve multipath-tcp.org:80:130.104.230.45 http://multipath-tcp.org  --connect-timeout 2
 
 ifaces="$( cat lkl-config.json |grep param| cut -f4 -d '"')"
 ifcount="$(cat lkl-config.json |grep param| cut -f4 -d '"'| wc -l)"
@@ -70,6 +70,7 @@ start_tcpdump() {
 
 kill_tcpdump() {
         echo "killing tcpdump"
+        sleep 2
         pkill tcpdump
         pkill tcpdump
 }
