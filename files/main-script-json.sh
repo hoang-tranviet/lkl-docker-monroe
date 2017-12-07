@@ -70,20 +70,20 @@ start_tcpdump() {
 
 kill_tcpdump() {
         echo "killing tcpdump"
-        sleep 2
+        sleep 1
         pkill tcpdump
         pkill tcpdump
 }
 
 iptables_bypass_kernel_stack() {
-  # preventive measure: drop incoming pkt to stack
-	iptables -A INPUT -p tcp --source-port $port -j DROP	
+  # preventive measure: drop incoming pkt to stack, but seems also affect (lkl) ourself
+	# iptables -A INPUT -p tcp --source-port $port -j DROP	
   # reactive measure: drop outgoing RST
   iptables -A OUTPUT -p tcp --tcp-flags RST RST -d $server -j DROP
 }
 
 iptables_cleanup() {
-	iptables -D INPUT -p tcp --source-port $port -j DROP
+	# iptables -D INPUT -p tcp --source-port $port -j DROP
   iptables -D OUTPUT -p tcp --tcp-flags RST RST -d $server -j DROP
 }
 
