@@ -55,6 +55,9 @@ def check_if(ifname):
     return (ifname in netifaces.interfaces() and
             netifaces.AF_INET in netifaces.ifaddresses(ifname))
 
+def get_mac(ifname):
+    return netifaces.ifaddresses(ifname)[netifaces.AF_LINK][0]['addr']
+
 def get_ip(ifname):
     """Get IP address of interface."""
     # TODO: what about AFINET6 / IPv6?
@@ -127,6 +130,7 @@ def create_LKL_config():
                 print("Interface is not up {}".format(ifname))
             continue
 
+        mac     = get_mac(ifname)
         ip      = get_ip(ifname)
         netmask = get_netmask(ifname)
         masklen = netmask_to_cidr(get_netmask(ifname))
@@ -148,6 +152,7 @@ def create_LKL_config():
                     "ip"     : ip,
                     "masklen": masklen,
                     "ifgateway": gw_ip,
+                    "mac"    : mac,
                 }
         LKL_CONFIG["interfaces"].append(LKL_IF)
 
