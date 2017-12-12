@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ "$#" != 1 ]
+then
+	echo "usage: merge-pcap   $prefix-name"
+	echo "This script merges two or more pcap files"
+	echo "e.g.:\\n $ ls"
+	echo "dump-2017-12-12-104801-130.104.230.97-362-op0.pcap.log"
+	echo "dump-2017-12-12-104801-130.104.230.97-362-op1.pcap.log"
+	echo "$ ./merge-pcap dump-2017-12-12-104801-130.104.230.97-362"
+	echo "output: merge-pcap dump-2017-12-12-104801-130.104.230.97-362.pcap"
+	exit
+fi
+
+name=$1
+
+mergecap -w $name.pcap   $name*.log
