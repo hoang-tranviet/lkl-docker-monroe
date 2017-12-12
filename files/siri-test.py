@@ -9,9 +9,12 @@ import time
 import sys
 import json
 import netifaces
-from subprocess import Popen, PIPE, STDOUT, call
+from subprocess import Popen, check_output, PIPE, STDOUT, call
 from multiprocessing import Process, Manager
 from collections import OrderedDict
+from tempfile import NamedTemporaryFile
+import shutil
+import traceback
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
@@ -19,6 +22,7 @@ pp = pprint.PrettyPrinter(indent=4)
 # Only enable DEBUG mode on local testing node
 DEBUG = False
 CONFIGFILE = '/monroe/config'
+UPDATECACHE = set()
 
 LKL_CONFIG = {
     "debug":"0",
@@ -72,31 +76,15 @@ def get_netmask(ifname):
 """
 def netmask_to_cidr(netmask):
     masklen = sum([bin(int(x)).count("1") for x in netmask.split(".")])
-    # masklen = 0
-    # s = mask.split(".")
-    # for piece in s:
-    #     if piece == 0:
-    #         return masklen
-    #     masklen += bin(int(piece)).count("1")
     return masklen
 
 def get_default_gateway():
-    gws=netifaces.gateways()
-    pp.pprint(gws)
-    if netifaces.AF_INET in gws['default']:
-        LKL_CONFIG['gateway']  = gws['default'][netifaces.AF_INET][0]
-        return True
-    else:
-        # print("No IPv4 default gateway!")
-        return False
-
-    # if netifaces.AF_INET6 in gws['default']:
-    #     LKL_CONFIG['gateway6'] = gws['default'][netifaces.AF_INET6][0]
-
+    outstring = check_output(["ip", "route","get","8.8.8.8"])
+    gw = outstring.split(' ')[2]
+    return gw
 
 def time_now():
     return time.time()
-
 
 def create_LKL_config():
     # Load config and check so we have all variables we need
@@ -156,11 +144,11 @@ def create_LKL_config():
                 }
         LKL_CONFIG["interfaces"].append(LKL_IF)
 
-
     gw = get_default_gateway()
-    if not gw:
-        print("use gateway of {} as default gateway".format(ifname))
-        LKL_CONFIG['gateway'] = LKL_CONFIG["interfaces"][0]["ifgateway"]
+    if gw:
+        LKL_CONFIG['gateway'] = gw
+    else:
+        print("error: default gateway not found")
 
     pp.pprint(LKL_CONFIG)
 
@@ -173,7 +161,7 @@ def create_socket(topic, port):
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
     socket.connect (port)
-    socket.setsockopt(zmq.SUBSCRIBE, '')
+    socket.setsockopt(zmq.SUBSCRIBE, topic)
     print("New socket created listening on topic : {}".format(topic))
     return socket
 
@@ -194,7 +182,6 @@ def run_exp(meta_info, expconfig, cmd):
     my_env["LKL_HIJACK_CONFIG_FILE"] = "./lkl-config.json"
 
     try:
-        # if cfg['verbosity'] > 2:
         print("running '{}'".format(cmd))
 
         # p = Popen(cmd, stdin=PIPE, stdout=PIPE, env=my_env)
@@ -266,7 +253,14 @@ for cmd in cmds:
     run_exp(meta_info, cfg, cmd)
 
 
-def metadata(meta_ifinfo, ifname, expconfig):
+def save_output(topic, msg, outfile="metadata.log", outdir="/monroe/results/"):
+    file = os.path.join(outdir, outfile)
+    with open(file, 'a') as f:
+        # f.write(topic+'\n')
+        f.write(msg+'\n')
+        f.close()
+
+def metadata(expconfig):
     timeout=60
     time_start = time.time()
 
@@ -279,6 +273,7 @@ def metadata(meta_ifinfo, ifname, expconfig):
 
     while time_now() - time_start < timeout:
         try:
+            # read new zmq message
             (topic, msgdata) = socket.recv().split(' ', 1)
         except zmq.ContextTerminated:
             # The context is terminated, lets try to open another socket
@@ -297,13 +292,23 @@ def metadata(meta_ifinfo, ifname, expconfig):
                 print("Error: ZMQ failed with : {}".format(e))
             raise
 
+        # Skip all messages that belong to connectivity as they are redundant
+        # as we save the modem messages.
+        if topic.startswith("MONROE.META.DEVICE.CONNECTIVITY."):
+            continue
 
-        print topic
-        print msgdata
-        print("\n")
-        sys.stdout.flush()
+        # According to specification all messages that ends with .UPDATE in the
+        # topic are re-broadcasted so we skip these.
+        if topic.endswith(".UPDATE"):
+            if topic in UPDATECACHE:
+                continue
+            else:
+                UPDATECACHE.add(topic)
 
-        if topic.startswith("MONROE.META.DEVICE.MODEM."):
-            msg = json.loads(msgdata)
-            # Some zmq messages do not have nodeid information so I set it here
-            msg['NodeId'] = EXPCONFIG['nodeid']
+        msg = json.loads(msgdata)
+        # Some zmq messages do not have nodeid information so I set it here
+        msg['NodeId'] = EXPCONFIG['nodeid']
+
+        save_output(topic=topic, msg=msgdata, outfile="metadata.log")
+
+metadata(EXPCONFIG)

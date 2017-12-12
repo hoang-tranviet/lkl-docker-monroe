@@ -16,9 +16,6 @@ if [ $? -eq 0 ]; then
   cat /monroe/config
   # MONROE_NODE=true
   LKL=lkl-hijack
-# elif
-#   echo "On local node"
-#   LKL=lkl/bin/lkl-hijack.sh
 else
   # echo "On dev node"
   # DEVNODE=true
@@ -40,10 +37,12 @@ ip route show table 10001
 cd /opt/monroe
 
 # "Installing LKL package:"
-apt-get install -y ./*.deb
+apt-get install -y ./*.deb    > /dev/null
 
 # this script also creates lkl-config.json
-./siri-test.py
+./siri-test.py &
+
+sleep 10
 
 LKL_FILE="lkl-config.json"
 
