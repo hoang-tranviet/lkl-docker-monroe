@@ -240,7 +240,7 @@ cmds = []
 # cmd = ["./iperf3", "-Vd", "--no-delay", "-t" "3",
 #          "-c", "130.104.230.97", "-p", "5201"]
 # cmds.append(["lkl-hijack", "ip", "addr"])
-cmds.append(["lkl-hijack", "ip", "route get 8.8.8.8"])
+# cmds.append(["lkl-hijack", "ip", "route get 8.8.8.8"])
 # cmds.append(["lkl-hijack", "ip", "route show table 4"])
 # cmds.append(["lkl-hijack", "ping", "-i 0.2","-c2","8.8.8.8"])
 # cmds.append(["lkl-hijack", "./iperf3_profile", "-Vd", "--no-delay", "-t", "3",
