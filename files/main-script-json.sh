@@ -80,7 +80,7 @@ apt-get install -y ./*.deb    > /dev/null
 # tcpdump -i eth0 -s 150 not icmp -w /monroe/results/dump-all  &
 
 
-# this script also creates lkl-config.json
+# this script creates lkl-config.json and metadata.log
 ./siri-test.py &
 
 sleep 10
@@ -92,7 +92,7 @@ test_curl
 ifaces="$( cat lkl-config.json |grep param| cut -f4 -d '"')"
 ifcount="$(cat lkl-config.json |grep param| cut -f4 -d '"'| wc -l)"
 
-echo "relevant ifaces: "$ifaces
+echo "relevant ifaces: "$ifaces  >> $log_file
 
 
 inlab_server="130.104.230.97"
@@ -101,7 +101,7 @@ linode_server="139.162.73.214"
 
 for server in $inlab_server $linode_server; do
 	## Note: iperf binary won't work if renamed
-	iperf="./iperf3_profile --no-delay -t 18 -i 0 -c $server --test-id $test_id "
+	iperf="./iperf3_profile --no-delay -t 24 -i 0 -c $server --test-id $test_id "
 	cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
 
 	IF1="$(echo $ifaces| cut -d' ' -f1)"
@@ -130,6 +130,7 @@ for server in $inlab_server $linode_server; do
     error=$?
     # iptables -L -v
     iptables_cleanup $server
+    sleep 5
   done
 
   kill_tcpdump
