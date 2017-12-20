@@ -31,6 +31,7 @@ iptables_cleanup() {
 }
 
 test_curl() {
+
   iptables_bypass_kernel_stack 130.104.230.45
 
   LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL \
@@ -39,12 +40,28 @@ test_curl() {
   iptables_cleanup 130.104.230.45
 }
 
+run_tcp_test() {
+  echo "Run TCP test"
+
+  error=1
+  # repeat until we find a free server port
+  while [[ $error -eq 1 ]]
+  do
+    port=$(( 5201 + RANDOM % 50))
+    (eval $iperf -p $port) >> $log_tcp 2>&1
+    error=$?
+    sleep 2
+  done
+
+}
+
 
 time=`date +%Y-%m-%d-%H%M%S`
 test_id=$time
 
 nodeid="$(cat /nodeid)"
 log_file=/monroe/results/output-${time}-${nodeid}.log
+log_tcp=/monroe/results/output-tcp-test.log
 
 # Check if we are on a managed monroe node
 cat /nodeid   >> $log_file 2>&1
@@ -65,9 +82,7 @@ fi
 
 ip addr
 ip route
-ip route get 8.8.8.8
-ip route show table 10000
-ip route show table 10001
+iface="$(ip route get 8.8.8.8|  cut -d' ' -f5| head -1)"
 
 # ss -antop| grep 5556
 # cat /etc/metadata-exporter.conf
@@ -77,23 +92,21 @@ cd /opt/monroe
 # "Installing LKL package:"
 apt-get install -y ./*.deb    > /dev/null
 
-# tcpdump -i eth0 -s 150 not icmp -w /monroe/results/dump-all  &
-
-
 # this script creates lkl-config.json and metadata.log
 ./siri-test.py &
 
-sleep 10
+sleep 1
 
 LKL_FILE="lkl-config.json"
 
-test_curl
 
 ifaces="$( cat lkl-config.json |grep param| cut -f4 -d '"')"
 ifcount="$(cat lkl-config.json |grep param| cut -f4 -d '"'| wc -l)"
 
 echo "relevant ifaces: "$ifaces  >> $log_file
 
+# tcpdump -s 150 -i $iface not icmp -w /monroe/results/dump-all  &
+test_curl
 
 inlab_server="130.104.230.97"
 linode_server="139.162.73.214"
@@ -106,10 +119,10 @@ for server in $inlab_server $linode_server; do
 
 	IF1="$(echo $ifaces| cut -d' ' -f1)"
 
-
-  start_tcpdump $server $IF1
+  run_tcp_test $iperf
 
   if [[ $ifcount -gt 1 ]]; then
+
     IF2="$(echo $ifaces| cut -d' ' -f2)"
     # echo "$IF1 $IF2"
     cmd=$cmd" -m $IF1,$IF2"
@@ -118,9 +131,12 @@ for server in $inlab_server $linode_server; do
 
   error=1
 
+  # repeat until we find a free server port
   while [[ $error -eq 1 ]]; do
 
-    port=$(( 5201 + RANDOM % 8))
+    start_tcpdump $server $IF1
+
+    port=$(( 5201 + RANDOM % 50))
 
     iptables_bypass_kernel_stack $server
 
@@ -130,7 +146,7 @@ for server in $inlab_server $linode_server; do
     error=$?
     # iptables -L -v
     iptables_cleanup $server
-    sleep 5
+    sleep 2
   done
 
   kill_tcpdump
