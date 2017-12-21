@@ -21,7 +21,7 @@ except ImportError:
 
 parser = argparse.ArgumentParser(description="plot iperf test results from json")
 parser.add_argument('--expdir', '-d',
-                    help="Directory to store results",
+                    help="Directory which stores results (exp ID)",
                     default="15918/")
 
 args = parser.parse_args()
@@ -33,7 +33,8 @@ test_run_list = []
 inl_ip    ="130.104.230.97"
 linode_ip ="139.162.73.214"
 
-delays = {"inl": [], "linode":[] }
+delays = {"Inlab": {"tcp":[], "mptcp":[]},
+          "Japan": {"tcp":[], "mptcp":[]}}
 
 def get_SignalStrength(file):
     rssi = {}
@@ -48,20 +49,21 @@ def get_SignalStrength(file):
         print rssi
     return rssi
 
-def get_delays_from_iperf_output(file, rssi):
+def get_delays_from_iperf_output(file, rssi, type):
     with open(file) as output_file:
-        server = "inl"
+        server = "Inlab"
         for line in output_file:
 
             if linode_ip in line:
-                server = "linode"
+                server = "Japan"
 
             iface = None
             # get first interface name
             if "-m" in line:
                 pattern = re.compile(r"-m \s*(\S+)")
-                ifaces = pattern.search(line).group(0)
-                iface = ifaces.split(",")[0]
+                if pattern.search(line) != None:
+                    ifaces = pattern.search(line).group(0)
+                    iface = ifaces.split(",")[0]
 
             if "Request-response delay:" in line:
                 delaystr = line.split(':')[1].strip()
@@ -74,7 +76,7 @@ def get_delays_from_iperf_output(file, rssi):
                 else:
                     signal = rssi[rssi.keys()[0]]
 
-                delays[server].append((delay, signal))
+                delays[server][type].append((delay, signal))
 
 def load_test_run_data():
     print("loading data from json")
@@ -88,8 +90,11 @@ def load_test_run_data():
             if file.startswith("metadata.log"):
                 rssi = get_SignalStrength(file)
 
-            if file.startswith("output-"):
-                get_delays_from_iperf_output(file, rssi)
+        for file in os.listdir("./"):
+            if file.startswith("output-201"):
+                get_delays_from_iperf_output(file, rssi, type="mptcp")
+            if file.startswith("output-tcp"):
+                get_delays_from_iperf_output(file, rssi, type="tcp")
 
         os.chdir("../..")
 
@@ -105,17 +110,20 @@ def plot_graph(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
     ax.set_facecolor(BACKGROUND_COLOR)
 
-    # x = np.arange(0, len(values), 1)
-    signals = [v[1] for v in delays[server]]
-    values = [v[0] for v in delays[server]]
-    print(len(values),len(signals))
+    for type in ["tcp","mptcp"]:
+        data = delays[server][type]
+        # x = np.arange(0, len(values), 1)
+        signals = [v[1] for v in data]
+        values = [v[0] for v in data]
+        print(str(type) + " average of "+str(len(values)) +": "+ str(sum(values)/len(values)))
 
-    ax.scatter(signals, values, label='delay')
+        ax.scatter(signals, values, label= type + " delay")
 
     plt.legend(loc='best')
     plt.xlabel('RSSI')
     plt.ylabel(datatype + ' (' +'second'+ ')')
 
+    plt.title(server + " server")
     plt.grid()
     plt.show()
 
