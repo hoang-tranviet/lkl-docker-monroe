@@ -13,7 +13,6 @@ start_tcpdump() {
 
 kill_tcpdump() {
         echo "killing tcpdump"
-        sleep 1
         pkill tcpdump
         pkill tcpdump
 }
@@ -43,16 +42,22 @@ test_curl() {
 run_tcp_test() {
   echo "Run TCP test"
 
+  tcpdump -i $IF1 -s 150 tcp and portrange 5201-5300  -w /monroe/results/dump-tcp-$server.pcap.log  &
+  sleep 0.3
+
+  iperf_cmd="LKL_HIJACK_CONFIG_FILE=lkl-mptcp-disabled.json   $LKL  $iperf"
+
   error=1
   # repeat until we find a free server port
   while [[ $error -eq 1 ]]
   do
     port=$(( 5201 + RANDOM % 50))
-    (eval $iperf -p $port) >> $log_tcp 2>&1
+    (eval $iperf_cmd -p $port) >> $log_tcp 2>&1
     error=$?
-    sleep 2
+    sleep 3
   done
 
+  pkill tcpdump
 }
 
 
@@ -82,6 +87,8 @@ fi
 
 ip addr
 ip route
+ip rule show
+
 iface="$(ip route get 8.8.8.8|  cut -d' ' -f5| head -1)"
 
 # ss -antop| grep 5556
@@ -103,6 +110,11 @@ LKL_FILE="lkl-config.json"
 ifaces="$( cat lkl-config.json |grep param| cut -f4 -d '"')"
 ifcount="$(cat lkl-config.json |grep param| cut -f4 -d '"'| wc -l)"
 
+if [ $ifcount -eq 0 ]; then
+    echo "no cellular interface found, terminate now"
+    exit 1
+fi
+
 echo "relevant ifaces: "$ifaces  >> $log_file
 
 # tcpdump -s 150 -i $iface not icmp -w /monroe/results/dump-all  &
@@ -118,6 +130,8 @@ for server in $inlab_server $linode_server; do
 	cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
 
 	IF1="$(echo $ifaces| cut -d' ' -f1)"
+
+  iptables_bypass_kernel_stack $server
 
   run_tcp_test $iperf
 
@@ -138,16 +152,16 @@ for server in $inlab_server $linode_server; do
 
     port=$(( 5201 + RANDOM % 50))
 
-    iptables_bypass_kernel_stack $server
 
     command=$cmd" -p $port"
     # execute command here, output to log file
     (eval $command) >> $log_file 2>&1
     error=$?
-    # iptables -L -v
-    iptables_cleanup $server
-    sleep 2
+    sleep 3
   done
+
+  # iptables -L -v
+  iptables_cleanup $server
 
   kill_tcpdump
 done

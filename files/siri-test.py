@@ -27,7 +27,7 @@ UPDATECACHE = set()
 LKL_CONFIG = {
     "debug":"0",
     "singlecpu":"1",
-    "sysctl":"net.ipv4.tcp_wmem=4096 87380 6291456",
+    "sysctl":"net.mptcp.mptcp_enabled=1",
     "interfaces":[]
   }
 
@@ -155,6 +155,10 @@ def create_LKL_config():
     with open('lkl-config.json', 'w') as fp:
         json.dump(LKL_CONFIG, fp, indent=4)
 
+    # create lkl config with mptcp disabled
+    LKL_CONFIG['sysctl'] = "net.mptcp.mptcp_enabled=0"
+    with open('lkl-mptcp-disabled.json', 'w') as fp:
+        json.dump(LKL_CONFIG, fp, indent=4)
 
 def create_socket(topic, port):
     print("Trying to create a new socket on {}".format(port))
