@@ -127,6 +127,27 @@ def plot_graph(datatype, server, legend='inside'):
     plt.grid()
     plt.show()
 
+def plot_cdf(datatype, server, legend='inside'):
+    fig, ax = plt.subplots()
+
+    for type in ["tcp","mptcp"]:
+        data = delays[server][type]
+        values = [v[0] for v in data]
+        # alternatively: cdf plot in one line
+        # plt.plot(np.sort(values), np.linspace(0, 1, len(values), endpoint=False))
+        sorted_ = np.sort(values)
+        yvals = np.arange(len(sorted_))/float(len(sorted_) -1)
+        plt.plot(sorted_, yvals, label= type + " delay")
+
+
+    plt.legend(loc='best')
+    plt.ylabel('CDF')
+    plt.xlabel(datatype + ' (' +'second'+ ')')
+    plt.ylim([0,1])
+
+    plt.title(server + " server")
+    plt.grid()
+    plt.show()
 
 load_test_run_data()
 
@@ -134,3 +155,4 @@ for server in delays:
     print delays[server],
     print("")
     plot_graph('delay', server)
+    plot_cdf('delay', server)
