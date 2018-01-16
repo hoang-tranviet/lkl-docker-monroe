@@ -33,8 +33,8 @@ test_run_list = []
 inl_ip    ="130.104.230.97"
 linode_ip ="139.162.73.214"
 
-delays = {"Inlab": {"tcp":[], "mptcp":[]},
-          "Japan": {"tcp":[], "mptcp":[]}}
+delays = {"Inlab": {"TCP":[], "MPTCP":[]},
+          "Japan": {"TCP":[], "MPTCP":[]}}
 
 def get_SignalStrength(file):
     rssi = {}
@@ -92,9 +92,9 @@ def load_test_run_data():
 
         for file in os.listdir("./"):
             if file.startswith("output-201"):
-                get_delays_from_iperf_output(file, rssi, type="mptcp")
+                get_delays_from_iperf_output(file, rssi, type="MPTCP")
             if file.startswith("output-tcp"):
-                get_delays_from_iperf_output(file, rssi, type="tcp")
+                get_delays_from_iperf_output(file, rssi, type="TCP")
 
         os.chdir("../..")
 
@@ -108,16 +108,16 @@ import matplotlib.pyplot as plt
 
 def plot_graph(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
-    ax.set_facecolor(BACKGROUND_COLOR)
+    # ax.set_facecolor(BACKGROUND_COLOR)
 
-    for type in ["tcp","mptcp"]:
+    for type in ["TCP","MPTCP"]:
         data = delays[server][type]
         # x = np.arange(0, len(values), 1)
         signals = [v[1] for v in data]
         values = [v[0] for v in data]
         print(str(type) + " average of "+str(len(values)) +": "+ str(sum(values)/len(values)))
 
-        ax.scatter(signals, values, label= type + " delay")
+        ax.scatter(signals, values, label= type + " Delay")
 
     plt.legend(loc='best')
     plt.xlabel('RSSI')
@@ -125,19 +125,21 @@ def plot_graph(datatype, server, legend='inside'):
 
     plt.title(server + " server")
     plt.grid()
-    plt.show()
+    # plt.show()
+    plt.savefig('Request-Response-Delay-'+ str(server)+'-Scatter.pdf', bbox_inches='tight')
+
 
 def plot_cdf(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
 
-    for type in ["tcp","mptcp"]:
+    for type in ["TCP","MPTCP"]:
         data = delays[server][type]
         values = [v[0] for v in data]
         # alternatively: cdf plot in one line
         # plt.plot(np.sort(values), np.linspace(0, 1, len(values), endpoint=False))
         sorted_ = np.sort(values)
         yvals = np.arange(len(sorted_))/float(len(sorted_) -1)
-        plt.plot(sorted_, yvals, label= type + " delay")
+        plt.plot(sorted_, yvals, label= type + " Delay", lw=1.5)
 
 
     plt.legend(loc='best')
@@ -147,12 +149,13 @@ def plot_cdf(datatype, server, legend='inside'):
 
     plt.title(server + " server")
     plt.grid()
-    plt.show()
+    # plt.show()
+    plt.savefig('Request-Response-Delay-'+ str(server)+'-CDF.pdf', bbox_inches='tight')
 
 load_test_run_data()
 
 for server in delays:
     print delays[server],
     print("")
-    plot_graph('delay', server)
-    plot_cdf('delay', server)
+    plot_graph('Request-Response Delay', server)
+    plot_cdf('Request-Response Delay', server)
