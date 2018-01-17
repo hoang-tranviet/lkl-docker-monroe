@@ -49,21 +49,25 @@ def get_SignalStrength(file):
         print rssi
     return rssi
 
-def get_delays_from_iperf_output(file, rssi, type):
+def get_delays_from_iperf_output(file, rssi, primary_iface, type):
+
     with open(file) as output_file:
         server = "Inlab"
+
         for line in output_file:
 
             if linode_ip in line:
                 server = "Japan"
 
-            iface = None
             # get first interface name
-            if "-m" in line:
-                pattern = re.compile(r"-m \s*(\S+)")
+            if (primary_iface == None) and ("ifparams:" in line):
+                pattern = re.compile(r"ifparams:\s*(\S+)")
                 if pattern.search(line) != None:
-                    ifaces = pattern.search(line).group(0)
-                    iface = ifaces.split(",")[0]
+                    str = pattern.search(line).group(0)
+                    primary_iface = str.split(":")[1]
+                    print primary_iface
+                    break
+
 
             if "Request-response delay:" in line:
                 delaystr = line.split(':')[1].strip()
@@ -71,30 +75,51 @@ def get_delays_from_iperf_output(file, rssi, type):
                 delay = float(delaystr)
 
                 signal = 0
-                if (iface != None) and iface in rssi:
-                    signal = rssi[iface]
+                if (primary_iface != None) and primary_iface in rssi:
+                    signal = rssi[primary_iface]
                 else:
+                    print ("primary_iface not found")
                     signal = rssi[rssi.keys()[0]]
 
                 delays[server][type].append((delay, signal))
+
+def get_primary_iface(file):
+    iface = None
+    with open(file) as f:
+        for line in f:
+            pattern = re.compile(r"IF1=\s*(\S+)")
+            if pattern.search(line) != None:
+                str = pattern.search(line).group(0)
+                iface = str.split("=")[1]
+                print iface
+                break
+    return iface
 
 def load_test_run_data():
     print("loading data from json")
 
     for test_run in sorted(os.listdir(exp_dir)):
+        test_run_path = os.path.join(exp_dir, test_run)
+        if not os.path.isdir(test_run_path):
+            continue
         print("test_run:" + test_run)
-        test_run_dir = exp_dir+test_run
-        os.chdir(test_run_dir)
+        os.chdir(test_run_path)
+        primary_iface = None
 
         for file in os.listdir("./"):
             if file.startswith("metadata.log"):
                 rssi = get_SignalStrength(file)
+            if file.startswith("container.log"):
+                primary_iface = get_primary_iface(file)
+
+        if primary_iface == None:
+            print ("container.log not found?")
 
         for file in os.listdir("./"):
             if file.startswith("output-201"):
-                get_delays_from_iperf_output(file, rssi, type="MPTCP")
+                get_delays_from_iperf_output(file, rssi, primary_iface, type="MPTCP")
             if file.startswith("output-tcp"):
-                get_delays_from_iperf_output(file, rssi, type="TCP")
+                get_delays_from_iperf_output(file, rssi, primary_iface, type="TCP")
 
         os.chdir("../..")
 
@@ -120,13 +145,13 @@ def plot_graph(datatype, server, legend='inside'):
         ax.scatter(signals, values, label= type + " Delay")
 
     plt.legend(loc='best')
-    plt.xlabel('RSSI')
+    plt.xlabel('RSSI (dBm)')
     plt.ylabel(datatype + ' (' +'second'+ ')')
 
     plt.title(server + " server")
     plt.grid()
-    # plt.show()
-    plt.savefig('Request-Response-Delay-'+ str(server)+'-Scatter.pdf', bbox_inches='tight')
+    plt.show()
+    fig.savefig('Request-Response-Delay-'+ str(server)+'-Scatter.pdf', bbox_inches='tight')
 
 
 def plot_cdf(datatype, server, legend='inside'):
@@ -139,7 +164,7 @@ def plot_cdf(datatype, server, legend='inside'):
         # plt.plot(np.sort(values), np.linspace(0, 1, len(values), endpoint=False))
         sorted_ = np.sort(values)
         yvals = np.arange(len(sorted_))/float(len(sorted_) -1)
-        plt.plot(sorted_, yvals, label= type + " Delay", lw=1.5)
+        ax.plot(sorted_, yvals, label= type + " Delay", lw=1.5)
 
 
     plt.legend(loc='best')
@@ -150,9 +175,10 @@ def plot_cdf(datatype, server, legend='inside'):
     plt.title(server + " server")
     plt.grid()
     # plt.show()
-    plt.savefig('Request-Response-Delay-'+ str(server)+'-CDF.pdf', bbox_inches='tight')
+    fig.savefig('Request-Response-Delay-'+ str(server)+'-CDF.pdf', bbox_inches='tight')
 
 load_test_run_data()
+os.chdir(exp_dir)
 
 for server in delays:
     print delays[server],
