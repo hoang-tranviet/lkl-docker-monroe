@@ -32,14 +32,14 @@ parser.add_argument('--pdf', '-p',
 
 args = parser.parse_args()
 
-exp_dir = args.expdir
+exp_dir = args.expdir.strip("/")
 
 test_run_list = []
 
 inl_ip    ="130.104.230.97"
 linode_ip ="139.162.73.214"
 
-delays = {"Inlab": {"TCP":[], "MPTCP":[]},
+delays = {"Belgium": {"TCP":[], "MPTCP":[]},
           "Japan": {"TCP":[], "MPTCP":[]}}
 
 
@@ -66,7 +66,7 @@ def get_SignalStrength(file):
         for line in metadata:
             try:
                 meta = json.loads(line)
-                if "RSSI" in meta:
+                if "RSSI" in meta and (meta["RSSI"] != 0):
                     rssi[meta["InternalInterface"]] = meta["RSSI"]
             except ValueError:
                 pass
@@ -76,7 +76,7 @@ def get_SignalStrength(file):
 def get_delays_from_iperf_output(file, rssi, speed, primary_iface, type):
 
     with open(file) as output_file:
-        server = "Inlab"
+        server = "Belgium"
 
         for line in output_file:
 
@@ -185,10 +185,11 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
     plt.title(server + " server")
     plt.grid()
     # plt.show()
+    filename = str(exp_dir)+ '-Delay-vs-RSSI-'+ str(server)
     if (args.pdf == True):
-        fig.savefig('Request-Response-Delay-'+ str(server)+'-Scatter.pdf', bbox_inches='tight')
+        fig.savefig(filename+'.pdf', bbox_inches='tight')
     else:
-        fig.savefig('Request-Response-Delay-'+ str(server)+'-Scatter.png', bbox_inches='tight')
+        fig.savefig(filename+'.png', bbox_inches='tight')
 
 def plot_delay_vs_speed(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
@@ -209,10 +210,12 @@ def plot_delay_vs_speed(datatype, server, legend='inside'):
 
     plt.title(server + " server")
     plt.grid()
+    filename = str(exp_dir)+ '-Delay-vs-Speed-'+ str(server)
+
     if (args.pdf == True):
-        fig.savefig('Delay-vs-Speed-'+ str(server)+'-Scatter.pdf', bbox_inches='tight')
+        fig.savefig(filename+'.pdf', bbox_inches='tight')
     else:
-        fig.savefig('Delay-vs-Speed-'+ str(server)+'-Scatter.png', bbox_inches='tight')
+        fig.savefig(filename+'.png', bbox_inches='tight')
 
 def plot_cdf(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
@@ -235,10 +238,12 @@ def plot_cdf(datatype, server, legend='inside'):
     plt.title(server + " server")
     plt.grid()
     # plt.show()
+    filename = str(exp_dir)+ '-Delay-CDF-'+ str(server)
+
     if (args.pdf == True):
-        fig.savefig('Request-Response-Delay-'+ str(server)+'-CDF.pdf', bbox_inches='tight')
+        fig.savefig(filename+'.pdf', bbox_inches='tight')
     else:
-        fig.savefig('Request-Response-Delay-'+ str(server)+'-CDF.png', bbox_inches='tight')
+        fig.savefig(filename+'.png', bbox_inches='tight')
 
 load_test_run_data()
 os.chdir(exp_dir)
