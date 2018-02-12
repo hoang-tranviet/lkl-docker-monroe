@@ -51,10 +51,13 @@ run_tcp_test() {
   # repeat until we find a free server port
   while [[ $error -eq 1 ]]
   do
-    port=$(( 5201 + RANDOM % 50))
+    sleep $(( 5 + RANDOM % 5 ))s
+
+    iptables_bypass_kernel_stack $server
+    port=$(( 5201 + RANDOM % 100 ))
     (eval $iperf_cmd -p $port) >> $log_tcp 2>&1
     error=$?
-    sleep 3
+    iptables_cleanup $server
   done
 
   pkill tcpdump
@@ -65,7 +68,8 @@ time=`date +%Y-%m-%d-%H%M%S`
 test_id=$time
 
 nodeid="$(cat /nodeid)"
-log_file=/monroe/results/output-${time}-${nodeid}.log
+log_file=/monroe/results/output-${time}-default-sched-${nodeid}.log
+log_file2=/monroe/results/output-${time}-server-sched-${nodeid}.log
 log_tcp=/monroe/results/output-tcp-test.log
 
 # Check if we are on a managed monroe node
@@ -114,6 +118,10 @@ if [ $ifcount -eq 0 ]; then
     echo "no cellular interface found, terminate now"
     exit 1
 fi
+if [ $ifcount -eq 1 ]; then
+  echo "Only one interface found, terminate now"
+  exit 1
+fi
 
 echo "relevant ifaces: "$ifaces  >> $log_file
 
@@ -123,45 +131,71 @@ test_curl
 inlab_server="130.104.230.97"
 linode_server="139.162.73.214"
 
+if (( RANDOM % 2 )); then
+  echo "run test against linode_server first"
+  server1=$linode_server
+  server2=$inlab_server
+else
+  echo "run test against inlab_server first"
+  server1=$inlab_server
+  server2=$linode_server
+fi
 
-for server in $inlab_server $linode_server; do
-	## Note: iperf binary won't work if renamed
-	iperf="./iperf3_profile --no-delay -t 24 -i 0 -c $server --test-id $test_id "
-	cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
+for server in $server1 $server2; do
+  ## Note: iperf binary won't work if renamed
+  iperf="./iperf3_profile --no-delay -t 24 -i 0 -c $server --test-id $test_id "
+  cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
 
-	IF1="$(echo $ifaces| cut -d' ' -f1)"
-
-  iptables_bypass_kernel_stack $server
+  IF1="$(echo $ifaces| cut -d' ' -f1)"
 
   run_tcp_test $iperf
 
-  if [[ $ifcount -gt 1 ]]; then
 
-    IF2="$(echo $ifaces| cut -d' ' -f2)"
-    # echo "$IF1 $IF2"
-    cmd=$cmd" -m $IF1,$IF2"
-    start_tcpdump $server $IF2
-  fi
+  IF2="$(echo $ifaces| cut -d' ' -f2)"
+  # echo "$IF1 $IF2"
+  cmd=$cmd" -m $IF1,$IF2"
 
+  start_tcpdump $server $IF1
+  start_tcpdump $server $IF2
+
+  echo "run exp against server with default scheduler"
   error=1
-
   # repeat until we find a free server port
   while [[ $error -eq 1 ]]; do
+    sleep $(( 5 + RANDOM % 5 ))s
 
-    start_tcpdump $server $IF1
+    iptables_bypass_kernel_stack $server
 
     port=$(( 5201 + RANDOM % 50))
-
-
     command=$cmd" -p $port"
     # execute command here, output to log file
     (eval $command) >> $log_file 2>&1
     error=$?
-    sleep 3
+
+    iptables_cleanup $server
+    # iptables -L -v
   done
 
-  # iptables -L -v
-  iptables_cleanup $server
+
+  echo "run exp against server scheduler"
+  error=1
+  # repeat until we find a free server port
+  while [[ $error -eq 1 ]]; do
+    sleep $(( 5 + RANDOM % 5 ))s
+
+    iptables_bypass_kernel_stack $server
+
+    port=$(( 5251 + RANDOM % 50))
+    command=$cmd" -p $port"
+    # execute command here, output to log file
+    (eval $command) >> $log_file2 2>&1
+    error=$?
+
+    iptables_cleanup $server
+    # iptables -L -v
+  done
 
   kill_tcpdump
+
+
 done
