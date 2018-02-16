@@ -4,7 +4,7 @@ set -x
 
 start_tcpdump() {
         server=$1
-        trace="/monroe/results/dump-$test_id-$server-$nodeid-$2.pcap.log"
+        trace="/monroe/results/client-$test_id-$server-$nodeid-$2.pcap.log"
         # echo "capturing packet trace to file: $trace"
         # tcpdump  -i $2  -s 150 tcp and portrange 5201-5210  -w $trace  &
         tcpdump -i $2 -s 150 not icmp and not port 5556  -w $trace  &
@@ -42,7 +42,7 @@ test_curl() {
 run_tcp_test() {
   echo "Run TCP test"
 
-  tcpdump -i $IF1 -s 150 tcp and portrange 5201-5300  -w /monroe/results/dump-tcp-$server.pcap.log  &
+  tcpdump -i $IF1 -s 150 tcp and portrange 5201-5300  -w /monroe/results/client-tcp-$server.pcap.log  &
   sleep 0.3
 
   iperf_cmd="LKL_HIJACK_CONFIG_FILE=lkl-mptcp-disabled.json   $LKL  $iperf"
@@ -68,8 +68,10 @@ time=`date +%Y-%m-%d-%H%M%S`
 test_id=$time
 
 nodeid="$(cat /nodeid)"
-log_file=/monroe/results/output-${time}-default-sched-${nodeid}.log
-log_file2=/monroe/results/output-${time}-server-sched-${nodeid}.log
+log_default=/monroe/results/output-${time}-default-sched-${nodeid}.log
+log_default_IR=/monroe/results/output-${time}-default-sched-IR-${nodeid}.log
+log_server=/monroe/results/output-${time}-server-sched-${nodeid}.log
+log_server_IR=/monroe/results/output-${time}-server-sched-IR-${nodeid}.log
 log_tcp=/monroe/results/output-tcp-test.log
 
 # Check if we are on a managed monroe node
@@ -143,7 +145,7 @@ fi
 
 for server in $server1 $server2; do
   ## Note: iperf binary won't work if renamed
-  iperf="./iperf3_profile --no-delay -t 24 -i 0 -c $server --test-id $test_id "
+  iperf="./iperf3 --no-delay -t 30 -i 0 -c $server --test-id $test_id "
   cmd="LKL_HIJACK_CONFIG_FILE=$LKL_FILE   $LKL  $iperf"
 
   IF1="$(echo $ifaces| cut -d' ' -f1)"
@@ -169,11 +171,27 @@ for server in $server1 $server2; do
     port=$(( 5201 + RANDOM % 50))
     command=$cmd" -p $port"
     # execute command here, output to log file
-    (eval $command) >> $log_file 2>&1
+    (eval $command) >> $log_default 2>&1
     error=$?
 
     iptables_cleanup $server
-    # iptables -L -v
+  done
+
+  echo "server: default scheduler with intermediate response"
+  error=1
+  # repeat until we find a free server port
+  while [[ $error -eq 1 ]]; do
+    sleep $(( 5 + RANDOM % 5 ))s
+
+    iptables_bypass_kernel_stack $server
+
+    port=$(( 5201 + RANDOM % 50))
+    command=$cmd" -p $port --inter-response"
+    # execute command here, output to log file
+    (eval $command) >> $log_default_IR 2>&1
+    error=$?
+
+    iptables_cleanup $server
   done
 
 
@@ -188,12 +206,29 @@ for server in $server1 $server2; do
     port=$(( 5251 + RANDOM % 50))
     command=$cmd" -p $port"
     # execute command here, output to log file
-    (eval $command) >> $log_file2 2>&1
+    (eval $command) >> $log_server 2>&1
     error=$?
 
     iptables_cleanup $server
-    # iptables -L -v
   done
+
+  echo "server scheduler with intermediate response"
+  error=1
+  # repeat until we find a free server port
+  while [[ $error -eq 1 ]]; do
+    sleep $(( 5 + RANDOM % 5 ))s
+
+    iptables_bypass_kernel_stack $server
+
+    port=$(( 5251 + RANDOM % 50))
+    command=$cmd" -p $port --inter-response"
+    # execute command here, output to log file
+    (eval $command) >> $log_server_IR 2>&1
+    error=$?
+
+    iptables_cleanup $server
+  done
+
 
   kill_tcpdump
 

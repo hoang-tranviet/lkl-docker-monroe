@@ -39,8 +39,10 @@ test_run_list = []
 inl_ip    ="130.104.230.97"
 linode_ip ="139.162.73.214"
 
-delays = {"Belgium": {"TCP":[], "MPTCP":[], "MPTCP-Default":[], "MPTCP-Server":[]},
-            "Japan": {"TCP":[], "MPTCP":[], "MPTCP-Default":[], "MPTCP-Server":[]}}
+delays = {"Belgium": {"TCP":[], "MPTCP":[], "MPTCP-Default":[], "MPTCP-Default-InterResponse":[],
+                                            "MPTCP-Server" :[], "MPTCP-Server-InterResponse" :[]},
+            "Japan": {"TCP":[], "MPTCP":[], "MPTCP-Default":[], "MPTCP-Default-InterResponse":[],
+                                            "MPTCP-Server" :[], "MPTCP-Server-InterResponse" :[]}}
 
 
 def get_gps_speed(file):
@@ -76,6 +78,17 @@ def get_SignalStrength(file):
 def get_delays_from_iperf_output(file, rssi, speed, primary_iface, type):
 
     with open(file) as output_file:
+
+        # get first interface name
+        if primary_iface == None:
+            for line in output_file:
+                pattern = re.compile(r"ifparams:\s*(\S+)")
+                if pattern.search(line) != None:
+                    str = pattern.search(line).group(0)
+                    primary_iface = str.split(":")[1]
+                    # print (primary_iface)
+                    break
+
         server = "Belgium"
 
         for line in output_file:
@@ -85,20 +98,12 @@ def get_delays_from_iperf_output(file, rssi, speed, primary_iface, type):
             if inl_ip in line:
                 server = "Belgium"
 
-            # get first interface name
-            if (primary_iface == None) and ("ifparams:" in line):
-                pattern = re.compile(r"ifparams:\s*(\S+)")
-                if pattern.search(line) != None:
-                    str = pattern.search(line).group(0)
-                    primary_iface = str.split(":")[1]
-                    print (primary_iface)
-                    break
-
             if "Request-response delay:" in line:
                 delaystr = line.split(':')[1].strip()
                 print("delay: "+ delaystr+'\t', end="")
                 delay = float(delaystr)
 
+                # get RSSI signal
                 signal = 0
                 if (primary_iface != None) and primary_iface in rssi:
                     signal = rssi[primary_iface]
@@ -130,7 +135,7 @@ def load_test_run_data():
         test_run_path = os.path.join(exp_dir, test_run)
         if not os.path.isdir(test_run_path):
             continue
-        print("test_run:" + test_run)
+        print("\ntest_run: " + test_run)
         os.chdir(test_run_path)
         primary_iface = None
         rssi = {}
@@ -149,17 +154,25 @@ def load_test_run_data():
         for file in os.listdir("./"):
             if file.startswith("output-201"):
                 if "default-sched" in str(file):
-                    print("mptcp default-sched:")
-                    get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Default")
+                    if "IR" in file:
+                        print("Default-sched InterResponse:")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Default-InterResponse")
+                    else:
+                        print("Default-sched:")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Default")
                 elif "server-sched" in str(file):
-                    print("mptcp server-sched:")
-                    get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Server")
+                    if "IR" in file:
+                        print("Server-sched InterResponse:")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Server-InterResponse")
+                    else:
+                        print("Server-sched:")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Server")
                 else:
                     # fallback for old experiments
-                    print("mptcp:")
+                    print("MPTCP:")
                     get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP")
             elif file.startswith("output-tcp"):
-                print("tcp:")
+                print("TCP:")
                 get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="TCP")
 
         os.chdir("../..")
@@ -177,7 +190,7 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
     # ax.set_facecolor(BACKGROUND_COLOR)
 
-    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server"]:
+    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
         # check if this data is empty
         if not delays[server][type]:
             continue
@@ -189,7 +202,7 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
 
         # get the correlation and p-value (confidence)
         # print np.corrcoef(values, signals)[0, 1]
-        print(linregress(values, signals))
+        # print(linregress(values, signals))
 
         ax.scatter(signals, values, label= type)
 
@@ -209,7 +222,7 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
 def plot_delay_vs_speed(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
 
-    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server"]:
+    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
         # check if this data is empty
         if not delays[server][type]:
             continue
@@ -238,7 +251,7 @@ def plot_delay_vs_speed(datatype, server, legend='inside'):
 def plot_cdf(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
 
-    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server"]:
+    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
         # check if this data is empty
         if not delays[server][type]:
             continue
@@ -248,7 +261,7 @@ def plot_cdf(datatype, server, legend='inside'):
         # plt.plot(np.sort(values), np.linspace(0, 1, len(values), endpoint=False))
         sorted_ = np.sort(values)
         yvals = np.arange(len(sorted_))/float(len(sorted_) -1)
-        ax.plot(sorted_, yvals, label= type, lw=1.5)
+        ax.plot(sorted_, yvals, label= type, lw=1.8)
 
 
     plt.legend(loc='best')
