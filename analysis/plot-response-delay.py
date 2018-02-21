@@ -184,6 +184,7 @@ def load_test_run_data():
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 from scipy.stats import linregress
 
 def plot_delay_vs_signal(datatype, server, legend='inside'):
@@ -202,9 +203,9 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
 
         # get the correlation and p-value (confidence)
         # print np.corrcoef(values, signals)[0, 1]
-        # print(linregress(values, signals))
+        print(round(linregress(values, signals).rvalue, 2))
 
-        ax.scatter(signals, values, label= type)
+        ax.scatter(signals, values, s=18, label= type)
 
     plt.legend(loc='best')
     plt.xlabel('RSSI of primary interface (dBm)')
@@ -216,8 +217,7 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
     filename = str(exp_dir)+ '-Delay-vs-RSSI-'+ str(server)
     if (args.pdf == True):
         fig.savefig(filename+'.pdf', bbox_inches='tight')
-    else:
-        fig.savefig(filename+'.png', bbox_inches='tight')
+    fig.savefig(filename+'.png', bbox_inches='tight')
 
 def plot_delay_vs_speed(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
@@ -245,10 +245,9 @@ def plot_delay_vs_speed(datatype, server, legend='inside'):
 
     if (args.pdf == True):
         fig.savefig(filename+'.pdf', bbox_inches='tight')
-    else:
-        fig.savefig(filename+'.png', bbox_inches='tight')
+    fig.savefig(filename+'.png', bbox_inches='tight')
 
-def plot_cdf(datatype, server, legend='inside'):
+def plot_cdf(datatype, server, logscale=False, legend='inside'):
     fig, ax = plt.subplots()
 
     for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
@@ -263,21 +262,35 @@ def plot_cdf(datatype, server, legend='inside'):
         yvals = np.arange(len(sorted_))/float(len(sorted_) -1)
         ax.plot(sorted_, yvals, label= type, lw=1.8)
 
+    if logscale==True:
+        ax.set_xscale('log')
+        ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        # ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%d'))
+        # ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        # ax.set_yscale('log')
 
     plt.legend(loc='best')
     plt.ylabel('CDF')
     plt.xlabel(datatype + ' (' +'second'+ ')')
+    if exp_dir == '23566':
+        plt.xlim([0,1])
+    elif exp_dir == '23568':
+        plt.xlim([0,2])
+        ax.set_xticks(np.arange(0, 2.1, 0.2))
+
     plt.ylim([0,1])
 
     plt.title(server + " server")
     plt.grid()
     # plt.show()
-    filename = str(exp_dir)+ '-Delay-CDF-'+ str(server)
+    if logscale==True:
+        filename = str(exp_dir)+ '-Delay-log-CDF-'+ str(server)
+    else:
+        filename = str(exp_dir)+ '-Delay-CDF-'+ str(server)
 
     if (args.pdf == True):
         fig.savefig(filename+'.pdf', bbox_inches='tight')
-    else:
-        fig.savefig(filename+'.png', bbox_inches='tight')
+    fig.savefig(filename+'.png', bbox_inches='tight')
 
 load_test_run_data()
 os.chdir(exp_dir)
@@ -288,3 +301,4 @@ for server in delays:
     plot_delay_vs_signal('Request-Response Delay', server)
     plot_delay_vs_speed('Request-Response Delay', server)
     plot_cdf('Request-Response Delay', server)
+    # plot_cdf('Request-Response Delay', server, logscale=True)
