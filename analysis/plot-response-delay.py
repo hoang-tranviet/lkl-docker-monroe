@@ -39,10 +39,10 @@ test_run_list = []
 inl_ip    ="130.104.230.97"
 linode_ip ="139.162.73.214"
 
-delays = {"Belgium": {"TCP":[], "MPTCP":[], "MPTCP-Default":[], "MPTCP-Default-InterResponse":[],
-                                            "MPTCP-Server" :[], "MPTCP-Server-InterResponse" :[]},
-            "Japan": {"TCP":[], "MPTCP":[], "MPTCP-Default":[], "MPTCP-Default-InterResponse":[],
-                                            "MPTCP-Server" :[], "MPTCP-Server-InterResponse" :[]}}
+delays = {"Belgium": {"TCP":[], "MPTCP":[], "MPTCP Default":[], "MPTCP Default No-IR":[],
+                                            "MPTCP Server" :[], "MPTCP Server No-IR" :[]},
+            "Japan": {"TCP":[], "MPTCP":[], "MPTCP Default":[], "MPTCP Default No-IR":[],
+                                            "MPTCP Server" :[], "MPTCP Server No-IR" :[]}}
 
 
 def get_gps_speed(file):
@@ -155,18 +155,18 @@ def load_test_run_data():
             if file.startswith("output-201"):
                 if "default-sched" in str(file):
                     if "IR" in file:
-                        print("Default-sched InterResponse:")
-                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Default-InterResponse")
-                    else:
                         print("Default-sched:")
-                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Default")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP Default")
+                    else:
+                        print("Default-sched NoInterResponse:")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP Default No-IR")
                 elif "server-sched" in str(file):
                     if "IR" in file:
-                        print("Server-sched InterResponse:")
-                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Server-InterResponse")
-                    else:
                         print("Server-sched:")
-                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP-Server")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP Server")
+                    else:
+                        print("Server-sched NoInterResponse:")
+                        get_delays_from_iperf_output(file, rssi, speed, primary_iface, type="MPTCP Server No-IR")
                 else:
                     # fallback for old experiments
                     print("MPTCP:")
@@ -187,11 +187,11 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 from scipy.stats import linregress
 
-def plot_delay_vs_signal(datatype, server, legend='inside'):
+def plot_delay_vs_signal(datatype, server, typelist, annot, legend='inside'):
     fig, ax = plt.subplots()
     # ax.set_facecolor(BACKGROUND_COLOR)
 
-    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
+    for type in typelist:
         # check if this data is empty
         if not delays[server][type]:
             continue
@@ -214,7 +214,7 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
     plt.title(server + " server")
     plt.grid()
     # plt.show()
-    filename = str(exp_dir)+ '-Delay-vs-RSSI-'+ str(server)
+    filename = str(exp_dir)+ '-Delay-vs-RSSI-'+ annot + str(server)
     if (args.pdf == True):
         fig.savefig(filename+'.pdf', bbox_inches='tight')
     fig.savefig(filename+'.png', bbox_inches='tight')
@@ -222,7 +222,8 @@ def plot_delay_vs_signal(datatype, server, legend='inside'):
 def plot_delay_vs_speed(datatype, server, legend='inside'):
     fig, ax = plt.subplots()
 
-    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
+    for type in ["TCP","MPTCP",  "MPTCP Default", "MPTCP Default No-IR",
+                                 "MPTCP Server", "MPTCP Server No-IR" ]:
         # check if this data is empty
         if not delays[server][type]:
             continue
@@ -247,10 +248,10 @@ def plot_delay_vs_speed(datatype, server, legend='inside'):
         fig.savefig(filename+'.pdf', bbox_inches='tight')
     fig.savefig(filename+'.png', bbox_inches='tight')
 
-def plot_cdf(datatype, server, logscale=False, legend='inside'):
+def plot_cdf(datatype, server, typelist, annot, logscale=False, legend='inside'):
     fig, ax = plt.subplots()
 
-    for type in ["TCP","MPTCP", "MPTCP-Default", "MPTCP-Server", "MPTCP-Default-InterResponse",  "MPTCP-Server-InterResponse"]:
+    for type in typelist:
         # check if this data is empty
         if not delays[server][type]:
             continue
@@ -286,7 +287,7 @@ def plot_cdf(datatype, server, logscale=False, legend='inside'):
     if logscale==True:
         filename = str(exp_dir)+ '-Delay-log-CDF-'+ str(server)
     else:
-        filename = str(exp_dir)+ '-Delay-CDF-'+ str(server)
+        filename = str(exp_dir)+ '-Delay-CDF-'+ annot + str(server)
 
     if (args.pdf == True):
         fig.savefig(filename+'.pdf', bbox_inches='tight')
@@ -298,7 +299,18 @@ os.chdir(exp_dir)
 for server in delays:
     print("")
     print(server + " server:")
-    plot_delay_vs_signal('Request-Response Delay', server)
+
+    typelist = ["TCP",  "MPTCP Default" ]
+    plot_delay_vs_signal('Request-Response Delay', server, typelist=typelist, annot="-tcp-vs-mptcp-")
+
+    typelist = ["MPTCP Default", "MPTCP Server", "MPTCP Default No-IR", "MPTCP Server No-IR" ]
+    plot_delay_vs_signal('Request-Response Delay', server, typelist=typelist, annot="-mptcp-only-")
+
     plot_delay_vs_speed('Request-Response Delay', server)
-    plot_cdf('Request-Response Delay', server)
+
+    typelist = ["TCP",  "MPTCP Default" ]
+    plot_cdf('Request-Response Delay', server=server, typelist=typelist, annot="-tcp-vs-mptcp-")
+
+    typelist = ["MPTCP Default", "MPTCP Server", "MPTCP Default No-IR", "MPTCP Server No-IR" ]
+    plot_cdf('Request-Response Delay', server=server, typelist=typelist, annot="-mptcp-only-")
     # plot_cdf('Request-Response Delay', server, logscale=True)
